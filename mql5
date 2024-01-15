@@ -1,0 +1,164 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                                         LionHunting EA MT4                          |
+//|                                            https://forexroboteasy.com                  |
+//|                                                 Forex Robot Easy Team                 |
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Include files                                                    |
+//+------------------------------------------------------------------+
+#include <Trade\Trade.mqh>
+#include <Trade\SymbolInfo.mqh>
+#include <Trade\TradeRequest.mqh>
+#include <Trade\TradeResult.mqh>
+#include <Trade\Constants.mqh>
+
+//+------------------------------------------------------------------+
+//| Global variables                                                 |
+//+------------------------------------------------------------------+
+CTrade trade; // Trade object
+CSymbolInfo symbolInfo; // Symbol information object
+double riskTolerance = 0.02; // Risk tolerance percentage
+double accountBalance; // Account balance
+double stopLoss; // Stop loss level
+double takeProfit; // Take profit level
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   // Get account balance
+   accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+   
+   // Calculate stop loss and take profit levels based on risk tolerance
+   stopLoss = symbolInfo.Ask() - (symbolInfo.Ask() - symbolInfo.Bid()) * riskTolerance;
+   takeProfit = symbolInfo.Ask() + (symbolInfo.Ask() - symbolInfo.Bid()) * riskTolerance;
+   
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   // Close any open trades
+   trade.CloseAll();
+}
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   // Loop through all currency pairs
+   for (int i = 0; i < SymbolsTotal(); i++)
+   {
+      // Get symbol information
+      symbolInfo.Name(SymbolName(i));
+      
+      // Check trading conditions
+      if (CheckTradingConditions())
+      {
+         // Execute trade
+         ExecuteTrade();
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Check trading conditions                                         |
+//+------------------------------------------------------------------+
+bool CheckTradingConditions()
+{
+   // Check if the current candlestick pattern is bullish
+   if (CandlestickPattern() == PATTERN_BULLISH)
+   {
+      // Check if the current price is above the resistance level
+      if (symbolInfo.Ask() > ResistanceLevel())
+      {
+         return true;
+      }
+   }
+   // Check if the current candlestick pattern is bearish
+   else if (CandlestickPattern() == PATTERN_BEARISH)
+   {
+      // Check if the current price is below the support level
+      if (symbolInfo.Ask() < SupportLevel())
+      {
+         return true;
+      }
+   }
+   
+   return false;
+}
+
+//+------------------------------------------------------------------+
+//| Execute trade                                                    |
+//+------------------------------------------------------------------+
+void ExecuteTrade()
+{
+   // Set trade request parameters
+   CTradeRequest request;
+   request.Action = TRADE_ACTION_DEAL;
+   request.Type = ORDER_TYPE_BUY;
+   request.Symbol = symbolInfo.Name();
+   request.Volume = CalculatePositionSize();
+   request.Price = symbolInfo.Ask();
+   request.StopLoss = stopLoss;
+   request.TakeProfit = takeProfit;
+   
+   // Execute trade
+   CTradeResult result;
+   trade.Request(request, result);
+   
+   // Check if trade was successful
+   if (result.Retcode == TRADE_RETCODE_DONE)
+   {
+      Print('Trade executed successfully: ', symbolInfo.Name());
+   }
+   else
+   {
+      Print('Trade execution failed: ', symbolInfo.Name(), ' - Error code: ', result.Retcode);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Calculate position size                                          |
+//+------------------------------------------------------------------+
+double CalculatePositionSize()
+{
+   // Calculate position size based on risk tolerance and account balance
+   double positionSize = accountBalance * riskTolerance / (symbolInfo.Ask() - stopLoss);
+   
+   return NormalizeDouble(positionSize, symbolInfo.Digits());
+}
+
+//+------------------------------------------------------------------+
+//| Candlestick pattern                                              |
+//+------------------------------------------------------------------+
+int CandlestickPattern()
+{
+   // Implement candlestick pattern recognition logic here
+   return PATTERN_BULLISH;
+}
+
+//+------------------------------------------------------------------+
+//| Support level                                                    |
+//+------------------------------------------------------------------+
+double SupportLevel()
+{
+   // Implement support level calculation logic here
+   return symbolInfo.Ask() - (symbolInfo.Ask() - symbolInfo.Bid()) * 0.1;
+}
+
+//+------------------------------------------------------------------+
+//| Resistance level                                                 |
+//+------------------------------------------------------------------+
+double ResistanceLevel()
+{
+   // Implement resistance level calculation logic here
+   return symbolInfo.Ask() + (symbolInfo.Ask() - symbolInfo.Bid()) * 0.1;
+}
